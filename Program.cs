@@ -15,6 +15,8 @@ using System.Web;
 using System.Xml;
 using WebSocketSharp;
 
+using System.IO.Compression;
+
 namespace CSharpDemo
 {  
     [DataContract]
@@ -259,9 +261,108 @@ namespace CSharpDemo
             //String uri = "http://localhost:8080/AutoSignInAgentServer/version.html";
             SoftwareUpdater();
 
+            //isProcessRunning();
+
+            //ZipTest();
+
+            string ZipPath = @"C:\Users\fqyya\Desktop\zip_folder\test.zip";
+            string ExtractPath = @"C:\Users\fqyya\Desktop\extract_folder";
+            //UnzipNewVersionSoftware(ZipPath, ExtractPath);
+
+
+            //FileNameExtensionTest();
+
             Console.ReadLine();
         }
 
+        static void FileNameExtensionTest()
+        {
+            string fileName = @"C:\mydir.old\myfile.7z";
+            string path = @"C:\mydir.old\";
+            string extension;
+
+            extension = Path.GetExtension(fileName);
+            Console.WriteLine("GetExtension('{0}') returns '{1}'",
+                fileName, extension);
+            if (extension.Contains(".7z") || extension.Contains(".zip"))
+            {
+                Console.WriteLine("yes, this ia compression file");
+            }
+
+            extension = Path.GetExtension(path);
+            Console.WriteLine("GetExtension('{0}') returns '{1}'",
+                path, extension);
+        }
+
+        static void ZipTest()
+        {
+            string startPath = @"C:\Users\fqyya\Desktop\testlog\";
+            string zipPath = @"C:\Users\fqyya\Desktop\zip_folder\test.zip";
+            string extractPath = @"C:\Users\fqyya\Desktop\extract_folder";
+            try
+            {
+                ZipFile.CreateFromDirectory(startPath, zipPath);
+
+                ZipFile.ExtractToDirectory(zipPath, extractPath);
+            }
+            catch (Exception ex)
+            {
+                Console.Out.WriteLine("exception: " + ex.Message);
+            }
+            
+        }
+
+        private static void ClearFolder(string FolderName)
+        {
+            try
+            {
+                DirectoryInfo dir = new DirectoryInfo(FolderName);
+
+                foreach (FileInfo fi in dir.GetFiles())
+                {
+                    fi.Delete();
+                }
+
+                foreach (DirectoryInfo di in dir.GetDirectories())
+                {
+                    ClearFolder(di.FullName);
+                    di.Delete();
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.Out.WriteLine("exception happend when clear folder " + FolderName + ". Exception is : " + ex.Message);
+            }
+            
+        }
+
+        static void UnzipNewVersionSoftware(String ZipPath, string ExtractPath)
+        {
+            try
+            {
+                Console.Out.WriteLine("begin to clear files in folder " + ExtractPath);
+                ClearFolder(ExtractPath);
+                Console.Out.WriteLine("finished clearing files in folder " + ExtractPath);
+
+                Console.Out.WriteLine("begin to extract!");
+                ZipFile.ExtractToDirectory(ZipPath, ExtractPath);
+                Console.Out.WriteLine("finsihed extracting!");
+            }
+            catch (Exception ex)
+            {
+                Console.Out.WriteLine("exception: " + ex.Message);
+            }
+        }
+
+        static void isProcessRunning()
+        {
+             Process[] processes = Process.GetProcessesByName("CSharpDemo");
+            if (processes.Length > 0)
+            {
+                Console.Out.WriteLine("CSharpDemo.exe is already running now!");
+                return;
+            }
+        }
         //static void getWebPageContent()
         //{
         //    try
@@ -289,10 +390,12 @@ namespace CSharpDemo
 
         //}
 
+
         static String FilePathToSave = "";
         private static String ConfigXmlFile = "C:\\Users\\fqyya\\Desktop\\testlog\\Office365AuthConfig.xml";
         static String LocalSoftwareVersion = "";
         static String VersionServerUrl = "";
+        static String ExtractPath = "";
 
         static Boolean ReadConfig()
         {
@@ -331,6 +434,14 @@ namespace CSharpDemo
                         return false;
                     }
                     VersionServerUrl = VersionServerUrlNode.InnerText.Trim();
+
+                    XmlNode ExtractPathNode = doc.DocumentElement.SelectSingleNode("/config/ExtractPath");
+                    if (ExtractPathNode == null)
+                    {
+                        Console.Out.WriteLine("No ExtractPath in " + ConfigXmlFile);
+                        return false;
+                    }
+                    ExtractPath = ExtractPathNode.InnerText.Trim();
                 }
             }
             catch (Exception ex)
@@ -410,14 +521,24 @@ namespace CSharpDemo
                     {
                         try
                         {
+                            String NewSoftwarePath = FilePathToSave + Path.GetFileName(VersionInfo.version_path);
+
                             Console.Out.WriteLine("begin to download " + VersionInfo.version_path);
-                            client.DownloadFile(VersionInfo.version_path, FilePathToSave);                                                   
+                            client.DownloadFile(VersionInfo.version_path, NewSoftwarePath);                                                   
                             Console.Out.WriteLine("finished downloading " + VersionInfo.version_path + " to " + FilePathToSave);
                             isDownloadingFinished = true;
                             if (!StoreSoftwareVersion(VersionInfo.version_code))
                             {
                                 Console.Out.WriteLine("Failed to save new software version");
                             }
+
+                            
+                            String FileExtension = Path.GetExtension(NewSoftwarePath);
+                            if (FileExtension.Contains(".7z") || FileExtension.Contains(".zip"))
+                            {
+                                Console.WriteLine("yes, this ia compression file");                              
+                                UnzipNewVersionSoftware(NewSoftwarePath, ExtractPath);
+                            }                    
                         }
                         catch (Exception ex)
                         {
